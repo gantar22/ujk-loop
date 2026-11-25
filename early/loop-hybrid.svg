@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <rect width="200" height="200" fill="#ffffff"/>
+  <g fill="none" stroke-width="8">
+    <!-- Rounded-rectangle loop rings, outside in: brown, purple, orange, green, pink -->
+    <rect x="20" y="20" width="160" height="160" rx="40" stroke="#a5642b"/>
+    <rect x="28" y="28" width="144" height="144" rx="32" stroke="#ce82ff"/>
+    <rect x="36" y="36" width="128" height="128" rx="24" stroke="#ff9600"/>
+    <rect x="44" y="44" width="112" height="112" rx="16" stroke="#58cc02"/>
+    <rect x="52" y="52" width="96"  height="96"  rx="8"  stroke="#ff86d0"/>
+
+    <!-- Brown and purple come in from the top, joining the left side -->
+    <path d="M 20 0 V 60" stroke="#a5642b"/>
+    <path d="M 28 0 V 60" stroke="#ce82ff"/>
+
+    <!-- Green and pink come in from the left, joining the top side -->
+    <path d="M 0 44 H 60" stroke="#58cc02"/>
+    <path d="M 0 52 H 60" stroke="#ff86d0"/>
+
+    <!-- Orange and green leave out the bottom, from the right side -->
+    <path d="M 164 140 V 200" stroke="#ff9600"/>
+    <path d="M 156 140 V 200" stroke="#58cc02"/>
+  </g>
+  <!-- Red vertical line, right of center -->
+  <line x1="122" y1="0" x2="122" y2="200" stroke="#ff4b4b" stroke-width="8"/>
+  <!-- Blue: in from the left, rounded 90° turn, straight down out the bottom center -->
+  <path d="M 0 70 H 76 A 24 24 0 0 1 100 94 V 200"
+        fill="none" stroke="#1cb0f6" stroke-width="8"/>
+
+  <!-- Vertical text inside the loop, each letter a different line color -->
+  <g font-family="Helvetica, Arial, sans-serif" font-weight="bold"
+     font-size="15" text-anchor="middle">
+    <!-- UJK, stacked under the blue line, left of its vertical part -->
+    <text x="76" y="100" fill="#ff9600">U</text>
+    <text x="76" y="118" fill="#ce82ff">J</text>
+    <text x="76" y="136" fill="#58cc02">K</text>
+    <!-- 2027, stacked to the right of the red line -->
+    <text x="135" y="85"  fill="#1cb0f6">2</text>
+    <text x="135" y="102" fill="#ff86d0">0</text>
+    <text x="135" y="119" fill="#a5642b">2</text>
+    <text x="135" y="136" fill="#ff4b4b">7</text>
+  </g>
+</svg>

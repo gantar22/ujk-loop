@@ -1,0 +1,218 @@
+import math, random
+
+# Same layout as loop-liquid-gen.py, drawn as twisted rope instead of liquid.
+random.seed(3)
+CX, CY = 100, 100
+COLORS = ["#62361b", "#522398", "#f9461c", "#009b3a", "#e27ea6"]  # outside -> in
+R0, STEP, W = 80, 6, 6.4     # outer radius, ring spacing, rope thickness
+H = 0.25                     # resampling step
+LAY = 2.3                    # distance between strands along the rope
+WHIP = "#d8c49a"             # twine used to bind the cut ends
+
+# per-corner inset of the rounding centre (0 = full quarter circle, larger = squarer)
+CORNER = {(-1, -1): 32, (1, 1): 32, (1, -1): 0, (-1, 1): 0}
+
+
+def ring_point(R, a):
+    dx, dy = math.cos(a), math.sin(a)
+    sx, sy = (1 if dx >= 0 else -1), (1 if dy >= 0 else -1)
+    c = CORNER[(sx, sy)]
+    t = R / max(abs(dx), abs(dy))
+    x, y = t * dx, t * dy
+    if abs(x) > c and abs(y) > c:
+        cx, cy, r = sx * c, sy * c, R - c
+        b = dx * cx + dy * cy
+        t = b + math.sqrt(b * b - (cx * cx + cy * cy - r * r))
+        x, y = t * dx, t * dy
+    return CX + x, CY + y
+
+
+def mix(hexc, other, f):
+    a = [int(hexc[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(other[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * f):02x}" for x, y in zip(a, b))
+
+
+def dark(c, f=0.45): return mix(c, "#000000", f)
+def light(c, f=0.35): return mix(c, "#ffffff", f)
+
+
+# ---- paths --------------------------------------------------------------------
+def seg(x0, y0, x1, y1): return [(x0, y0), (x1, y1)]
+
+
+def arc(R, a0, a1):
+    n = int(abs(a1 - a0) * 2)
+    return [ring_point(R, math.radians(a0 + (a1 - a0) * k / n)) for k in range(n + 1)]
+
+
+def bezier(p0, p1, p2, p3, n=300):
+    out = []
+    for k in range(n + 1):
+        t = k / n; u = 1 - t
+        out.append(tuple(u**3 * p0[i] + 3*u*u*t * p1[i] + 3*u*t*t * p2[i] + t**3 * p3[i] for i in (0, 1)))
+    return out
+
+
+class Rope:
+    def __init__(self, pts, closed=False):
+        xs, ys = [pts[0][0]], [pts[0][1]]
+        carry = 0.0
+        for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+            L = math.hypot(bx - ax, by - ay)
+            if L == 0: continue
+            d = H - carry
+            while d <= L:
+                xs.append(ax + (bx - ax) * d / L); ys.append(ay + (by - ay) * d / L); d += H
+            carry = L - (d - H)
+        self.xs, self.ys, self.closed = xs, ys, closed
+        self.n = len(xs)
+        self.len = (self.n - 1) * H
+        self.t = []
+        for i in range(self.n):
+            a, b = self._idx(i - 2), self._idx(i + 2)
+            dx, dy = xs[b] - xs[a], ys[b] - ys[a]
+            l = math.hypot(dx, dy) or 1
+            self.t.append((dx / l, dy / l))
+
+    def _idx(self, i):
+        if self.closed: return i % (self.n - 1)
+        return max(0, min(self.n - 1, i))
+
+    def at(self, s, o=0.0):
+        """Point s along the rope, pushed o sideways (straight-line extension past the ends)."""
+        if self.closed: s %= self.len
+        i = int(round(s / H)); j = self._idx(i)
+        x, y = self.xs[j], self.ys[j]
+        tx, ty = self.t[j]
+        extra = s - j * H if not self.closed else 0.0
+        x += tx * extra; y += ty * extra
+        return x - ty * o, y + tx * o
+
+    def tangent(self, s):
+        if self.closed: s %= self.len
+        return self.t[self._idx(int(round(s / H)))]
+
+
+def pl(points):
+    return " ".join(f"{x:.2f},{y:.2f}" for x, y in points)
+
+
+def draw_rope(rope, color, width=W, s0=None, s1=None):
+    """A rope: dark core, then slanted lens-shaped strands with a highlight each."""
+    hw = width / 2
+    out = [f'<polyline points="{pl(zip(rope.xs, rope.ys))}" fill="none" stroke="{dark(color, .55)}" '
+           f'stroke-width="{width + .5:.2f}" stroke-linejoin="round"/>']
+    lay = LAY * width / W
+    if rope.closed:                     # whole number of strands so the loop has no seam
+        lay = rope.len / round(rope.len / lay)
+    tw = width * 0.95                   # how far one strand travels along the rope crossing it
+    lo = 0 if s0 is None else s0
+    hi = rope.len if s1 is None else s1
+    s = lo if rope.closed else lo - tw
+    fill, hi_c = color, light(color)
+    lens, shines = [], []
+    while s < (rope.len if rope.closed else hi):
+        if not rope.closed and (s < lo - tw or s + tw > hi + tw):
+            s += lay; continue
+        left, right, shine = [], [], []
+        for k in range(13):
+            u = k / 12
+            su, o = s + tw * u, -hw + 2 * hw * u
+            w = lay * 0.5 * math.sin(math.pi * u) ** 0.7
+            left.append(rope.at(su - w, o)); right.append(rope.at(su + w, o))
+            if 0.18 <= u <= 0.62:
+                shine.append(rope.at(su - w * 0.35, o))
+        lens.append(left + right[::-1])
+        shines.append(shine)
+        s += lay
+    out += [f'<polygon points="{pl(p)}" fill="{fill}"/>' for p in lens]
+    out.append(f'<path d="{" ".join("M" + pl(p).replace(" ", " L") for p in shines)}" fill="none" '
+               f'stroke="{hi_c}" stroke-width="{lay * .22:.2f}" stroke-linecap="round" opacity=".8"/>')
+    return out
+
+
+def whipping(rope, s_a, s_b, width=W):
+    """A few turns of twine bound round the rope between s_a and s_b."""
+    hw = width / 2 + 0.35
+    out = []
+    turns = max(3, int(abs(s_b - s_a) / 0.75))
+    for k in range(turns):
+        s = s_a + (s_b - s_a) * (k + .5) / turns
+        p, q = rope.at(s - .2, -hw), rope.at(s + .2, hw)
+        out.append(f'<line x1="{p[0]:.2f}" y1="{p[1]:.2f}" x2="{q[0]:.2f}" y2="{q[1]:.2f}" '
+                   f'stroke="{dark(WHIP, .35)}" stroke-width=".95" stroke-linecap="round"/>')
+        out.append(f'<line x1="{p[0]:.2f}" y1="{p[1]:.2f}" x2="{q[0]:.2f}" y2="{q[1]:.2f}" '
+                   f'stroke="{WHIP}" stroke-width=".6" stroke-linecap="round"/>')
+    return out
+
+
+def fray(rope, s, direction, color, width=W):
+    """Loose fibres spraying out past a bound end. direction = +1 (past the end) or -1 (before the start)."""
+    tx, ty = rope.tangent(s)
+    tx, ty = tx * direction, ty * direction
+    nx, ny = -ty, tx
+    out = []
+    for k in range(14):
+        o = (k / 13 - .5) * width * .9
+        x0, y0 = rope.at(s, o)
+        L = 3.2 + random.random() * 2.6
+        spread = o * .35 + (random.random() - .5) * 1.2
+        mx, my = x0 + tx * L * .5 + nx * spread * .4, y0 + ty * L * .5 + ny * spread * .4
+        x1, y1 = x0 + tx * L + nx * spread, y0 + ty * L + ny * spread
+        c = [color, light(color, .25), dark(color, .2)][k % 3]
+        out.append(f'<path d="M{x0:.2f},{y0:.2f} Q{mx:.2f},{my:.2f} {x1:.2f},{y1:.2f}" fill="none" '
+                   f'stroke="{c}" stroke-width="{.45 + random.random() * .35:.2f}" stroke-linecap="round"/>')
+    return out
+
+
+def group(parts):
+    return '<g filter="url(#shadow)">\n    ' + "\n    ".join(parts) + "\n  </g>"
+
+
+# ---- the picture ----------------------------------------------------------------
+layers = []
+for i, color in enumerate(COLORS):
+    R = R0 - STEP * i
+    parts = []
+    # branches tuck in underneath their own ring, like a splice
+    stubs = {
+        0: [seg(CX - R, -12, CX - R, CY)],
+        1: [seg(CX - R, -12, CX - R, CY)],
+        2: [seg(CX + R, CY, CX + R, 212)],
+        3: [seg(-12, CY - R, CX, CY - R), seg(CX + R, CY, CX + R, 212)],
+        4: [seg(-12, CY - R, CX, CY - R)],
+    }
+    for st in stubs[i]:
+        parts += draw_rope(Rope(st), color)
+    parts += draw_rope(Rope(arc(R, 0, 360), closed=True), color)
+    layers.append(group(parts))
+
+# the two loose strings, bound and frayed where they end in the picture
+blue = Rope(bezier((-6, 68.5), (78, 60), (112, 120), (100, 184)))
+red = Rope(seg(122, 6, 122, 184))
+SW = 5
+for rope, color, top_end in ((blue, "#00a1de", False), (red, "#c60c30", True)):
+    parts = draw_rope(rope, color, SW)
+    a = 0
+    if top_end:
+        parts = fray(rope, 0, -1, color, SW) + parts + whipping(rope, 0.2, 3.4, SW)
+    parts += fray(rope, rope.len, 1, color, SW) + whipping(rope, rope.len - 3.4, rope.len - .2, SW)
+    layers.append(group(parts))
+
+body = "\n  ".join(layers)
+svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="600" height="600">
+  <defs>
+    <!-- soft shadow under each rope so crossings read as one laid over another -->
+    <filter id="shadow" filterUnits="userSpaceOnUse" x="-20" y="-20" width="240" height="240">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="0.7"/>
+      <feOffset dx="0.5" dy="0.9" result="o"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.4"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="200" height="200" fill="#fbf8f2"/>
+  {body}
+</svg>
+'''
+open("/home/kartero/Documents/loop-rope.svg", "w").write(svg)

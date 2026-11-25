@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -12 216 220" width="600" height="611">
+  <!-- Flat, rounded, chunky style: only rounded squares + round-capped strokes, no points,
+       vibrant colors, a darker "lip" under each shape, pill shadow, lots of white space -->
+  <rect x="-8" y="-12" width="216" height="220" fill="#ffffff"/>
+
+  <!-- Pill-shaped ground shadow (a pill, not an oval, so it stays flat) -->
+  <rect x="36" y="194" width="128" height="10" rx="5" fill="#e5e5e5"/>
+
+  <!-- Lips: the same shapes in darker shades, nudged down -->
+  <g fill="none" stroke-width="11" stroke-linecap="round" transform="translate(0 4)">
+    <rect x="16" y="10" width="168" height="168" rx="56" stroke="#7a4a1e"/>
+    <rect x="27" y="21" width="146" height="146" rx="45" stroke="#a560d8"/>
+    <rect x="38" y="32" width="124" height="124" rx="34" stroke="#d97d00"/>
+    <rect x="49" y="43" width="102" height="102" rx="23" stroke="#46a302"/>
+    <rect x="60" y="54" width="80" height="80" rx="12" stroke="#e05fae"/>
+  </g>
+  <!-- Rings, outside in: brown, purple, orange, green, pink -->
+  <g fill="none" stroke-width="11">
+    <rect x="16" y="10" width="168" height="168" rx="56" stroke="#a5642b"/>
+    <rect x="27" y="21" width="146" height="146" rx="45" stroke="#ce82ff"/>
+    <rect x="38" y="32" width="124" height="124" rx="34" stroke="#ff9600"/>
+    <rect x="49" y="43" width="102" height="102" rx="23" stroke="#58cc02"/>
+    <rect x="60" y="54" width="80" height="80" rx="12" stroke="#ff86d0"/>
+  </g>
+
+  <!-- Blue reverse C: in from the upper left, out the bottom center -->
+  <path d="M 2 80 H 76 A 24 24 0 0 1 100 104 V 186" fill="none" stroke="#1899d6" stroke-width="12"
+        stroke-linecap="round" transform="translate(0 4)"/>
+  <path d="M 2 80 H 76 A 24 24 0 0 1 100 104 V 186" fill="none" stroke="#1cb0f6" stroke-width="12"
+        stroke-linecap="round"/>
+
+  <!-- Red vertical, right of center -->
+  <path d="M 124 0 V 186" stroke="#d33131" stroke-width="12" stroke-linecap="round" transform="translate(0 4)"/>
+  <path d="M 124 0 V 186" stroke="#ff4b4b" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Soft highlights: short rounded glints on the upper left -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round">
+    <path d="M 16 132 V 100"/>
+    <path d="M 124 8 V 22"/>
+  </g>
+</svg>

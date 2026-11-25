@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Color Editor</title>
+<style>
+  :root {
+    --bg: #f4f2ee; --panel: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --border: #e2dfd8; --accent: #1cb0f6; --flash: #fff3b0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #17171a; --panel: #222226; --text: #f1f1f3; --muted: #9a9aa2;
+            --border: #34343a; --flash: #5a4d10; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+           padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  button, .btn { font: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 8px;
+                 background: var(--bg); color: var(--text); cursor: pointer; }
+  button:hover, .btn:hover { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=file] { display: none; }
+  #filename { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px;
+              background: var(--bg); color: var(--text); width: 160px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+              margin: 0 0 10px; }
+  #preview { display: flex; align-items: center; justify-content: center; min-height: 320px; }
+  #preview svg { max-width: 100%; height: auto; max-height: 70vh; cursor: crosshair; }
+  #error { color: #d33131; font-size: 13px; min-height: 1.2em; margin-top: 6px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .row { display: grid; grid-template-columns: 40px 1fr 92px; gap: 8px; align-items: center;
+         padding: 6px; border-radius: 8px; transition: background .4s; }
+  .row.flash { background: var(--flash); }
+  .row input[type=color] { width: 40px; height: 32px; padding: 0; border: 1px solid var(--border);
+                           border-radius: 6px; background: none; cursor: pointer; }
+  .row .name { font-weight: 600; text-transform: capitalize; }
+  .row .uses { color: var(--muted); font-size: 12px; }
+  .row input[type=text] { font: 13px ui-monospace, Menlo, monospace; width: 100%; padding: 5px 6px;
+                          border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+  .hint { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+  textarea { width: 100%; min-height: 260px; resize: vertical; font: 12px/1.5 ui-monospace, Menlo, monospace;
+             padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+  .source { grid-column: 1 / -1; }
+  body.dragging main { outline: 3px dashed var(--accent); outline-offset: -8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Loop Color Editor</h1>
+  <label class="btn" for="file">Open SVG…</label>
+  <input type="file" id="file" accept=".svg,image/svg+xml">
+  <button id="reset">Reset</button>
+  <span style="flex:1"></span>
+  <input id="filename" value="loop-edited.svg" aria-label="Download file name">
+  <button id="download">Download SVG</button>
+  <button id="copy">Copy source</button>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Preview</h2>
+    <div id="preview"></div>
+    <div id="error"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Palettes</h2>
+    <div class="presets" id="presets"></div>
+    <h2>Colors</h2>
+    <div id="colors"></div>
+    <p class="hint">Click any part of the preview to jump to its color. You can also drop an .svg file anywhere on the page.</p>
+  </section>
+
+  <section class="panel source">
+    <h2>SVG source (editable)</h2>
+    <textarea id="source" spellcheck="false"></textarea>
+  </section>
+</main>
+
+<script type="text/plain" id="default-svg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400">
+  <rect width="200" height="200" fill="#ffffff"/>
+  <g fill="none" stroke-width="8">
+    <!-- Rounded-rectangle loop rings, outside in: brown, purple, orange, green, pink -->
+    <rect x="20" y="20" width="160" height="160" rx="40" stroke="#a5642b"/>
+    <rect x="28" y="28" width="144" height="144" rx="32" stroke="#ce82ff"/>
+    <rect x="36" y="36" width="128" height="128" rx="24" stroke="#ff9600"/>
+    <rect x="44" y="44" width="112" height="112" rx="16" stroke="#58cc02"/>
+    <rect x="52" y="52" width="96"  height="96"  rx="8"  stroke="#ff86d0"/>
+
+    <!-- Brown and purple come in from the top, joining the left side -->
+    <path d="M 20 0 V 60" stroke="#a5642b"/>
+    <path d="M 28 0 V 60" stroke="#ce82ff"/>
+
+    <!-- Green and pink come in from the left, joining the top side -->
+    <path d="M 0 44 H 60" stroke="#58cc02"/>
+    <path d="M 0 52 H 60" stroke="#ff86d0"/>
+
+    <!-- Orange and green leave out the bottom, from the right side -->
+    <path d="M 164 140 V 200" stroke="#ff9600"/>
+    <path d="M 156 140 V 200" stroke="#58cc02"/>
+  </g>
+  <!-- Red vertical line, right of center -->
+  <line x1="122" y1="0" x2="122" y2="200" stroke="#ff4b4b" stroke-width="8"/>
+  <!-- Blue: in from the left, rounded 90° turn, straight down out the bottom center -->
+  <path d="M 0 70 H 76 A 24 24 0 0 1 100 94 V 200"
+        fill="none" stroke="#1cb0f6" stroke-width="8"/>
+
+  <!-- Vertical text inside the loop, each letter a different line color -->
+  <g font-family="Helvetica, Arial, sans-serif" font-weight="bold"
+     font-size="15" text-anchor="middle">
+    <!-- UJK, stacked under the blue line, left of its vertical part -->
+    <text x="76" y="100" fill="#ff9600">U</text>
+    <text x="76" y="118" fill="#ce82ff">J</text>
+    <text x="76" y="136" fill="#58cc02">K</text>
+    <!-- 2027, stacked to the right of the red line -->
+    <text x="135" y="85"  fill="#1cb0f6">2</text>
+    <text x="135" y="102" fill="#ff86d0">0</text>
+    <text x="135" y="119" fill="#a5642b">2</text>
+    <text x="135" y="136" fill="#ff4b4b">7</text>
+  </g>
+</svg>
+</script>
+
+<script>
+const PRESETS = {
+  "Friendly": { background: "#ffffff", brown: "#a5642b", purple: "#ce82ff", orange: "#ff9600",
+                green: "#58cc02", pink: "#ff86d0", red: "#ff4b4b", blue: "#1cb0f6" },
+  "Mine (loop.svg)": { background: "#e3dfd6", brown: "#7c4527", purple: "#9e6ce4", orange: "#f55f24",
+                green: "#59a848", pink: "#ff9f9c", red: "#f00038", blue: "#427eff" },
+  "CTA": { background: "#ffffff", brown: "#62361b", purple: "#522398", orange: "#f9461c",
+           green: "#009b3a", pink: "#e27ea6", red: "#c60c30", blue: "#00a1de" },
+};
+const ROLE_ORDER = ["background", "brown", "purple", "orange", "green", "pink", "red", "blue"];
+const COLOR_RE = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-zA-Z])/g;
+const TOKEN = i => `\u0000${i}\u0000`;
+
+const $ = id => document.getElementById(id);
+const DEFAULT_SVG = $("default-svg").textContent.trim();
+
+// Model: the source with every color swapped for a token, plus the list of colors.
+let template = "", colors = [], uses = [], roles = {};   // roles: name -> color index
+
+const norm = h => {
+  h = h.toLowerCase();
+  return h.length === 4 ? "#" + [...h.slice(1)].map(c => c + c).join("") : h;
+};
+const render = () => template.replace(/\u0000(\d+)\u0000/g, (_, i) => colors[i]);
+
+function tokenize(src) {
+  colors = []; uses = [];
+  const index = {};
+  template = src.replace(COLOR_RE, m => {
+    const h = norm(m);
+    if (!(h in index)) { index[h] = colors.length; colors.push(h); uses.push(0); }
+    uses[index[h]]++;
+    return TOKEN(index[h]);
+  });
+  // Work out which color is which line, if the file matches a known palette.
+  roles = {};
+  for (const p of Object.values(PRESETS)) {
+    if (Object.values(p).every(h => h in index)) {
+      for (const [role, h] of Object.entries(p)) roles[role] = index[h];
+      break;
+    }
+  }
+}
+
+function updatePreview() {
+  const src = render();
+  const doc = new DOMParser().parseFromString(src, "image/svg+xml");
+  const err = doc.querySelector("parsererror");
+  if (err || doc.documentElement.nodeName !== "svg") {
+    $("error").textContent = "The SVG source has an error, so the preview isn't updating.";
+    return;
+  }
+  $("error").textContent = "";
+  $("preview").replaceChildren(document.importNode(doc.documentElement, true));
+}
+
+function syncSource() { $("source").value = render(); }
+
+function roleOf(i) {
+  return Object.keys(roles).find(r => roles[r] === i);
+}
+
+function buildRows() {
+  const order = colors.map((_, i) => i).sort((a, b) => {
+    const ra = ROLE_ORDER.indexOf(roleOf(a)), rb = ROLE_ORDER.indexOf(roleOf(b));
+    return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb) || a - b;
+  });
+  $("colors").replaceChildren(...order.map(i => {
+    const row = document.createElement("div");
+    row.className = "row"; row.dataset.i = i;
+    const role = roleOf(i);
+    row.innerHTML = `
+      <input type="color" value="${colors[i]}" aria-label="Pick color">
+      <div><div class="name">${role || "Color " + (i + 1)}</div>
+           <div class="uses">used ${uses[i]}×</div></div>
+      <input type="text" value="${colors[i]}" maxlength="7" aria-label="Hex value">`;
+    const [picker, hex] = row.querySelectorAll("input");
+    picker.addEventListener("input", () => { hex.value = picker.value; setColor(i, picker.value); });
+    hex.addEventListener("input", () => {
+      let v = hex.value.trim(); if (!v.startsWith("#")) v = "#" + v;
+      if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) { v = norm(v); picker.value = v; setColor(i, v); }
+    });
+    return row;
+  }));
+  document.querySelectorAll("#presets button").forEach(b => {
+    b.disabled = Object.keys(roles).length === 0;
+    b.title = b.disabled ? "Palettes only work on the loop SVGs" : "";
+  });
+}
+
+function setColor(i, hex) {
+  colors[i] = hex;
+  updatePreview();
+  syncSource();
+}
+
+function load(src) {
+  tokenize(src);
+  syncSource();
+  updatePreview();
+  buildRows();
+}
+
+// Palettes
+for (const [name, p] of Object.entries(PRESETS)) {
+  const b = document.createElement("button");
+  b.textContent = name;
+  b.addEventListener("click", () => {
+    for (const [role, i] of Object.entries(roles)) colors[i] = p[role];
+    syncSource(); updatePreview(); buildRows();
+  });
+  $("presets").append(b);
+}
+
+// Editing the source directly
+let timer;
+$("source").addEventListener("input", () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const keep = Object.fromEntries(Object.entries(roles).map(([r, i]) => [r, colors[i]]));
+    tokenize($("source").value);
+    // Keep line names if those colors are still there.
+    if (!Object.keys(roles).length) {
+      for (const [r, h] of Object.entries(keep)) { const i = colors.indexOf(h); if (i >= 0) roles[r] = i; }
+    }
+    updatePreview(); buildRows();
+  }, 300);
+});
+
+// Click the preview to find a color
+const toHex = c => {
+  const m = c && c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  return m ? "#" + m.slice(1, 4).map(n => (+n).toString(16).padStart(2, "0")).join("") : null;
+};
+$("preview").addEventListener("click", e => {
+  const el = e.target.closest("svg *");
+  if (!el) return;
+  const cs = getComputedStyle(el);
+  const hex = (cs.stroke !== "none" && toHex(cs.stroke)) || toHex(cs.fill);
+  const i = colors.indexOf(hex);
+  const row = document.querySelector(`.row[data-i="${i}"]`);
+  if (!row) return;
+  row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  row.classList.add("flash");
+  setTimeout(() => row.classList.remove("flash"), 700);
+  row.querySelector("input[type=color]").focus();
+});
+
+// Open / drop / reset / download / copy
+const readFile = f => f && f.text().then(t => {
+  load(t);
+  $("filename").value = f.name.replace(/\.svg$/i, "") + "-edited.svg";
+});
+$("file").addEventListener("change", e => readFile(e.target.files[0]));
+addEventListener("dragover", e => { e.preventDefault(); document.body.classList.add("dragging"); });
+addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dragging"); });
+addEventListener("drop", e => {
+  e.preventDefault(); document.body.classList.remove("dragging");
+  readFile(e.dataTransfer.files[0]);
+});
+$("reset").addEventListener("click", () => { load(DEFAULT_SVG); $("filename").value = "loop-edited.svg"; });
+$("download").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([render() + "\n"], { type: "image/svg+xml" }));
+  a.download = $("filename").value.trim() || "loop-edited.svg";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(render()); $("copy").textContent = "Copied!"; }
+  catch { $("source").select(); document.execCommand("copy"); $("copy").textContent = "Copied!"; }
+  setTimeout(() => $("copy").textContent = "Copy source", 1200);
+});
+
+load(DEFAULT_SVG);
+</script>
+</body>
+</html>

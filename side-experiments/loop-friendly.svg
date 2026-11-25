@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="600" height="600">
+  <!-- Flat, rounded, chunky style: only circles + round-capped strokes, no points,
+       vibrant colors, a darker "lip" under each shape, pill shadow, lots of white space -->
+  <rect width="200" height="200" fill="#ffffff"/>
+
+  <!-- Pill-shaped ground shadow (a pill, not an oval, so it stays flat) -->
+  <rect x="44" y="176" width="112" height="10" rx="5" fill="#e5e5e5"/>
+
+  <!-- Lips: the same shapes in darker shades, nudged down -->
+  <g fill="none" stroke-width="11" stroke-linecap="round" transform="translate(0 4)">
+    <circle cx="100" cy="94" r="70" stroke="#7a4a1e"/>
+    <circle cx="100" cy="94" r="59" stroke="#a560d8"/>
+    <circle cx="100" cy="94" r="48" stroke="#d97d00"/>
+    <circle cx="100" cy="94" r="37" stroke="#46a302"/>
+    <circle cx="100" cy="94" r="26" stroke="#e05fae"/>
+  </g>
+  <!-- Rings, outside in: brown, purple, orange, green, pink -->
+  <g fill="none" stroke-width="11">
+    <circle cx="100" cy="94" r="70" stroke="#a5642b"/>
+    <circle cx="100" cy="94" r="59" stroke="#ce82ff"/>
+    <circle cx="100" cy="94" r="48" stroke="#ff9600"/>
+    <circle cx="100" cy="94" r="37" stroke="#58cc02"/>
+    <circle cx="100" cy="94" r="26" stroke="#ff86d0"/>
+  </g>
+
+  <!-- Blue reverse C: in from the upper left, out the bottom center -->
+  <path d="M 20 46 C 82 30, 116 96, 100 168" fill="none" stroke="#1899d6" stroke-width="12"
+        stroke-linecap="round" transform="translate(0 4)"/>
+  <path d="M 20 46 C 82 30, 116 96, 100 168" fill="none" stroke="#1cb0f6" stroke-width="12"
+        stroke-linecap="round"/>
+
+  <!-- Red vertical, right of center -->
+  <path d="M 124 14 V 168" stroke="#d33131" stroke-width="12" stroke-linecap="round" transform="translate(0 4)"/>
+  <path d="M 124 14 V 168" stroke="#ff4b4b" stroke-width="12" stroke-linecap="round"/>
+
+  <!-- Soft highlights: short rounded glints on the upper left -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round">
+    <path d="M 32.4 112.1 A 70 70 0 0 1 32.4 75.9"/>
+    <path d="M 124 22 V 34"/>
+  </g>
+</svg>

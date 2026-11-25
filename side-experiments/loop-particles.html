@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loop Particles</title>
+<style>
+  :root { --bg: #fbf8f2; --ink: #8a8378; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { display: grid; place-items: center; font: 12px/1.4 system-ui, sans-serif; color: var(--ink); }
+  canvas { display: block; touch-action: none; cursor: crosshair; }
+  #hint { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; opacity: .7; user-select: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint">move through it to stir · click to splash · space to pause</div>
+<script>
+// ---- geometry: same as loop-liquid-gen.py (200x200 units) ---------------------
+const CX = 100, CY = 100, R0 = 80, STEP = 6, W = 6.4;
+const COLORS = ["#62361b", "#522398", "#f9461c", "#009b3a", "#e27ea6"]; // outside -> in
+const BG = "#fbf8f2";
+// per-corner inset of the rounding centre: 0 = quarter circle, larger = squarer
+const CORNER = { "-1,-1": 32, "1,1": 32, "1,-1": 0, "-1,1": 0 };
+const rad = d => d * Math.PI / 180;
+
+function ringPoint(R, a) {
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const sx = dx >= 0 ? 1 : -1, sy = dy >= 0 ? 1 : -1;
+  const c = CORNER[sx + "," + sy];
+  let t = R / Math.max(Math.abs(dx), Math.abs(dy));
+  let x = t * dx, y = t * dy;
+  if (Math.abs(x) > c && Math.abs(y) > c) {
+    const cx = sx * c, cy = sy * c, r = R - c, b = dx * cx + dy * cy;
+    t = b + Math.sqrt(b * b - (cx * cx + cy * cy - r * r));
+    x = t * dx; y = t * dy;
+  }
+  return [CX + x, CY + y];
+}
+
+// path pieces, each a list of [x,y]
+const seg = (x0, y0, x1, y1) => [[x0, y0], [x1, y1]];
+function arc(R, a0, a1) {           // degrees; a1 > a0 = clockwise on screen
+  const pts = [], n = Math.ceil(Math.abs(a1 - a0) * 2);
+  for (let k = 0; k <= n; k++) pts.push(ringPoint(R, rad(a0 + (a1 - a0) * k / n)));
+  return pts;
+}
+function bezier(p0, p1, p2, p3) {
+  const pts = [];
+  for (let k = 0; k <= 200; k++) {
+    const t = k / 200, u = 1 - t;
+    pts.push([0, 1].map(i => u*u*u*p0[i] + 3*u*u*t*p1[i] + 3*u*t*t*p2[i] + t*t*t*p3[i]));
+  }
+  return pts;
+}
+
+// resample a polyline at uniform spacing for O(1) lookups
+const H = 0.25;
+function route(pieces, opts = {}) {
+  const raw = pieces.flat();
+  const xs = [], ys = [];
+  let carry = 0;
+  xs.push(raw[0][0]); ys.push(raw[0][1]);
+  for (let i = 1; i < raw.length; i++) {
+    const [ax, ay] = raw[i - 1], [bx, by] = raw[i];
+    const L = Math.hypot(bx - ax, by - ay);
+    if (L === 0) continue;
+    let d = H - carry;
+    while (d <= L) { xs.push(ax + (bx - ax) * d / L); ys.push(ay + (by - ay) * d / L); d += H; }
+    carry = L - (d - H);
+  }
+  const n = xs.length, tx = new Float32Array(n), ty = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 2);
+    const dx = xs[b] - xs[a], dy = ys[b] - ys[a], l = Math.hypot(dx, dy) || 1;
+    tx[i] = dx / l; ty[i] = dy / l;
+  }
+  return { xs: Float32Array.from(xs), ys: Float32Array.from(ys), tx, ty, len: (n - 1) * H,
+           width: opts.width ?? W, speed: opts.speed ?? 14, drip: !!opts.drip };
+}
+
+// how the liquid moves along each line (metro logic from loop.svg)
+const Rr = i => R0 - STEP * i;
+const LINES = [
+  { color: COLORS[0], routes: [ // brown: down from the top, then once round anticlockwise
+    route([seg(CX - Rr(0), -12, CX - Rr(0), CY), arc(Rr(0), 180, -180)]) ] },
+  { color: COLORS[1], routes: [ // purple: same
+    route([seg(CX - Rr(1), -12, CX - Rr(1), CY), arc(Rr(1), 180, -180)]) ] },
+  { color: COLORS[2], routes: [ // orange: round clockwise, out the bottom
+    route([arc(Rr(2), 0, 360), seg(CX + Rr(2), CY, CX + Rr(2), 212)]) ] },
+  { color: COLORS[3], routes: [ // green: in from the left, a quarter round, out the bottom...
+    route([seg(-12, CY - Rr(3), CX, CY - Rr(3)), arc(Rr(3), 270, 360), seg(CX + Rr(3), CY, CX + Rr(3), 212)]),
+    route([arc(Rr(3), 0, 270)]) ] },  // ...while the rest of its ring keeps circulating
+  { color: COLORS[4], routes: [ // pink: in from the left, once round clockwise
+    route([seg(-12, CY - Rr(4), CX, CY - Rr(4)), arc(Rr(4), 270, 630)]) ] },
+  { color: "#00a1de", routes: [ // blue stream, drips at the end
+    route([bezier([-4, 68], [78, 60], [112, 120], [100, 184])], { width: 5, speed: 20, drip: true }) ] },
+  { color: "#c60c30", routes: [ // red stream
+    route([seg(122, 6, 122, 184)], { width: 5, speed: 20, drip: true }) ] },
+];
+
+// ---- particles ----------------------------------------------------------------
+const DENSITY = 7;          // particles per unit of path length
+const GRAV = 140;           // units/s^2 for drips
+for (const line of LINES) {
+  line.parts = [];
+  for (const r of line.routes) {
+    r.acc = 0; r.pool = []; r.nextDrop = 0.6 + Math.random();
+    const n = Math.round(r.len * DENSITY);
+    for (let k = 0; k < n; k++) line.parts.push(spawn(r, Math.random() * r.len));
+  }
+}
+function spawn(r, s) {
+  const hw = r.width / 2 * 0.92;
+  return { r, s, off: (Math.random() * 2 - 1) * hw, sp: r.speed * (0.8 + Math.random() * 0.4),
+           dx: 0, dy: 0, vx: 0, vy: 0, state: 0, x: 0, y: 0, sz: 1.1 + Math.random() * 0.9,
+           ph: Math.random() * 6.283 };
+}
+
+// ---- canvas / input -------------------------------------------------------------
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+let size = 600, scale = 3, dpr = 1;
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  size = Math.max(200, Math.min(innerWidth, innerHeight) - 32);
+  cv.style.width = cv.style.height = size + "px";
+  cv.width = cv.height = Math.round(size * dpr);
+  scale = cv.width / 200;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, cv.width, cv.height);
+}
+addEventListener("resize", resize); resize();
+
+const mouse = { x: -999, y: -999, px: -999, py: -999, down: false };
+function toUnits(e) { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) / b.width * 200, (e.clientY - b.top) / b.height * 200]; }
+cv.addEventListener("pointermove", e => { [mouse.x, mouse.y] = toUnits(e); });
+cv.addEventListener("pointerleave", () => { mouse.x = mouse.y = -999; });
+cv.addEventListener("pointerdown", e => { [mouse.x, mouse.y] = toUnits(e); splash(mouse.x, mouse.y); });
+let paused = false;
+addEventListener("keydown", e => { if (e.code === "Space") { paused = !paused; e.preventDefault(); } });
+
+function splash(x, y) {
+  for (const line of LINES) for (const p of line.parts) {
+    const ddx = p.x - x, ddy = p.y - y, d2 = ddx * ddx + ddy * ddy;
+    if (d2 < 900) { const d = Math.sqrt(d2) || 1, f = 260 * (1 - d / 30); p.vx += ddx / d * f; p.vy += ddy / d * f; }
+  }
+}
+
+// ---- simulation -----------------------------------------------------------------
+let T = 0, last = performance.now();
+function step(dt) {
+  T += dt;
+  const mvx = (mouse.x - mouse.px) / Math.max(dt, 1e-3), mvy = (mouse.y - mouse.py) / Math.max(dt, 1e-3);
+  const mouseOn = mouse.x > -100 && mouse.px > -100;
+  for (const line of LINES) {
+    const out = [];
+    for (const r of line.routes) {             // steady inflow at each route's start
+      r.acc += DENSITY * r.speed * dt;
+      while (r.acc >= 1) { r.acc--; line.parts.push(spawn(r, Math.random() * r.speed * dt)); }
+      if (r.drip && (r.nextDrop -= dt) <= 0) {  // let the pooled blob go as one drip
+        for (const p of r.pool) { p.state = 2; p.vy = 4 + Math.random() * 6; p.vx = (Math.random() - .5) * 2; }
+        r.pool = []; r.nextDrop = 0.9 + Math.random() * 0.9;
+      }
+    }
+    for (const p of line.parts) {
+      const r = p.r;
+      if (p.state === 2) {                      // falling drip
+        p.vy += GRAV * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        if (p.y < 215) out.push(p);
+        continue;
+      }
+      if (p.state === 0) {
+        p.s += p.sp * dt;
+        if (p.s >= r.len) {
+          if (!r.drip) continue;                // left the picture / rejoined the flow: retire
+          p.state = 1; p.s = r.len; r.pool.push(p);
+          const a = Math.random() * 6.283, m = Math.sqrt(Math.random()) * 3.4;
+          p.off = 0; p.px0 = Math.cos(a) * m; p.py0 = Math.sin(a) * m + 2.4;
+        }
+        // drift across the band a little, like liquid churning
+        p.off += (Math.random() - .5) * 1.4 * dt * 6;
+        const hw = r.width / 2 * 0.95;
+        if (p.off > hw) p.off = hw; else if (p.off < -hw) p.off = -hw;
+      }
+      // mouse stirs, springs pull back to the line
+      if (mouseOn) {
+        const ddx = p.x - mouse.x, ddy = p.y - mouse.y, d2 = ddx * ddx + ddy * ddy;
+        if (d2 < 196) {
+          const d = Math.sqrt(d2) || 1, f = (1 - d / 14);
+          p.vx += (ddx / d * 90 + mvx * 0.6) * f * dt * 6;
+          p.vy += (ddy / d * 90 + mvy * 0.6) * f * dt * 6;
+        }
+      }
+      p.vx += -p.dx * 40 * dt; p.vy += -p.dy * 40 * dt;
+      const damp = Math.exp(-5 * dt); p.vx *= damp; p.vy *= damp;
+      p.dx += p.vx * dt; p.dy += p.vy * dt;
+
+      const i = Math.min(r.xs.length - 1, Math.max(0, Math.round(p.s / H)));
+      let bx = r.xs[i] - r.ty[i] * p.off, by = r.ys[i] + r.tx[i] * p.off;
+      if (p.state === 1) { bx = r.xs[i] + p.px0; by = r.ys[i] + p.py0 + Math.sin(T * 3 + p.ph) * 0.3; }
+      // shared slow wobble so the whole brush breathes together
+      const wx = Math.sin(by * 0.07 + T * 0.6) * 0.6 + Math.sin(by * 0.023 - T * 0.3) * 0.5;
+      const wy = Math.cos(bx * 0.06 - T * 0.5) * 0.6 + Math.cos(bx * 0.031 + T * 0.4) * 0.5;
+      p.x = bx + wx + p.dx; p.y = by + wy + p.dy;
+      out.push(p);
+    }
+    line.parts = out;
+  }
+  mouse.px = mouse.x; mouse.py = mouse.y;
+}
+
+function draw() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 0.32; ctx.fillStyle = BG;   // fading trails
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.globalAlpha = 1;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  for (const line of LINES) {
+    ctx.fillStyle = line.color;
+    ctx.beginPath();
+    for (const p of line.parts) {
+      const s = p.state === 0 ? p.sz : p.sz * 1.3;
+      ctx.rect(p.x - s / 2, p.y - s / 2, s, s);
+    }
+    ctx.fill();
+  }
+}
+
+// settle the flow before the first frame so it starts mid-pour
+for (let k = 0; k < 90; k++) step(1 / 60);
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) { step(dt); draw(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

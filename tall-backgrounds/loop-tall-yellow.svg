@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 364" width="480" height="728">
+  <rect width="240" height="364" fill="#fffb95"/>
+  <g fill="none" stroke-width="8">
+    <!-- Rounded-rectangle loop rings, outside in: brown, purple, orange, green, pink.
+         Outer ring is 200 wide x 324 tall (the golden ratio, 1.62) -->
+    <rect x="20" y="20" width="200" height="324" rx="40" stroke="#7c4527"/>
+    <rect x="28" y="28" width="184" height="308" rx="32" stroke="#9e6ce4"/>
+    <rect x="36" y="36" width="168" height="292" rx="24" stroke="#f55f24"/>
+    <rect x="44" y="44" width="152" height="276" rx="16" stroke="#59a848"/>
+    <rect x="52" y="52" width="136" height="260" rx="8"  stroke="#ff9f9c"/>
+
+    <!-- Brown and purple come in from the top, joining the left side -->
+    <path d="M 20 0 V 60" stroke="#7c4527"/>
+    <path d="M 28 0 V 60" stroke="#9e6ce4"/>
+
+    <!-- Green and pink come in from the left, joining the top side -->
+    <path d="M 0 44 H 60" stroke="#59a848"/>
+    <path d="M 0 52 H 60" stroke="#ff9f9c"/>
+
+    <!-- Orange and green leave out the bottom, from the right side -->
+    <path d="M 204 304 V 364" stroke="#f55f24"/>
+    <path d="M 196 304 V 364" stroke="#59a848"/>
+  </g>
+  <!-- Red vertical line, right of center -->
+  <line x1="144" y1="0" x2="144" y2="364" stroke="#f00038" stroke-width="8"/>
+  <!-- Blue: in from the left, rounded 90° turn, straight down out the bottom -->
+  <path d="M 0 70 H 86 A 24 24 0 0 1 110 94 V 364"
+        fill="none" stroke="#427eff" stroke-width="8"/>
+
+  <!-- Vertical text inside the loop, each letter a different line color -->
+  <g font-family="Ubuntu, Helvetica, Arial, sans-serif" font-weight="bold"
+     font-size="22" text-anchor="middle">
+    <!-- UJK, under the blue line, pushed up to the top of its area -->
+    <text x="81" y="98"  fill="#f55f24">U</text>
+    <text x="81" y="122" fill="#9e6ce4">J</text>
+    <text x="81" y="146" fill="#59a848">K</text>
+    <!-- 2027, right of the red line, pushed down to the bottom of its area -->
+    <text x="166" y="228" fill="#427eff">2</text>
+    <text x="166" y="252" fill="#ff9f9c">0</text>
+    <text x="166" y="276" fill="#7c4527">2</text>
+    <text x="166" y="300" fill="#f00038">7</text>
+  </g>
+</svg>
